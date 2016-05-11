@@ -8,26 +8,34 @@ class Pipeline(object):
     Transformer helper functions and state checkpoints
     to go from text data/labels to model-ready numeric data
     """
-    def __init__(self, vocab_size, value_filter=None,
+    def __init__(self, vocab_size=15000, value_filter=None,
                  data_col=None, id_col=None, label_col=None, features=[],
-                 binary=True, prepend_sender=True, binary_options={u'Product', u'Service'},
-                 df=None, message_key=None):
-        self.vocab_size=vocab_size
+                 binary=True, prepend_sender=True, binary_options={u'product', u'service'},
+                 positive_class='product', df=None, message_key=None):
+
+        # message processing
         self.value_filter = value_filter or (lambda v: True)
-        self.data_col = data_col or 'msgs'
-        self.id_col = id_col or 'Chat Session ID'
-        self.label_col = label_col or 'Chat Type'
+        self.data_col = data_col or 'tokens'
+        self.id_col = id_col or 'id'
+        self.label_col = label_col or 'labels'
         self.features = features
         self.prepend_sender = prepend_sender
-        self.label_filter = lambda v: True if not binary else v in binary_options
-        self.word_index_kwargs = dict(nb_words=vocab_size)
         self.message_key = message_key
+
+        # label processing
+        self.label_filter = lambda v: True if not binary else v in binary_options
+        self.positive_class = positive_class
+
+        # vocab processing
+        self.vocab_size=vocab_size        
+        self.word_index_kwargs = dict(nb_words=vocab_size)
+
         if df:
             self.setup(df)
  
     def _tokenize(self, df, message_key=''):
         if not message_key:
-            cols = gather.get_message_key(df)
+            cols = gather.get_message_cols(df)
             message_iterator = gather.get_wide_columns_message_iterator(cols)
         elif isinstance(message_key, (unicode, str)):
             message_iterator = gather.get_dense_column_message_iterator(message_key)
@@ -41,11 +49,11 @@ class Pipeline(object):
 
 
     def _set_token_data(self, df):
+        if self.data_col not in df.columns:
+            self._tokenize(df, message_key=self.message_key)
+
         label_filtered_df = pd.DataFrame(df[df[self.label_col].map(self.label_filter)])
 
-        if self.data_col not in df.columns:
-            self.tokenize(df, message_key=self.message_key)
-        
         self.tp = prep.TextPrepper()
 
         self.data = data = pd.DataFrame(label_filtered_df[
@@ -66,6 +74,7 @@ class Pipeline(object):
         to_matrices_kwargs.setdefault('data_col', self.data_col)
         to_matrices_kwargs.setdefault('id_col', self.id_col)
         to_matrices_kwargs.setdefault('label_col', self.label_col)
+        to_matrices_kwargs.setdefault('positive_class', self.positive_class)
         logger.info("Making numeric sequences...")
 
         self.learning_data = (X_train, y_train, train_ids), (X_test, y_test, test_ids) = \

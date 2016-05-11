@@ -30,12 +30,11 @@ class TextPrepper(object):
             return '$digit'
     
     def to_matrices(self, df, word_index, id_col='Chat Session ID', label_col='Chat Type',
-                     data_col='msgs', seed=133, test_split=.2, **kwargs):
+                     data_col='msgs', positive_class='product', seed=133, test_split=.2, **kwargs):
 
         df = df[~df[id_col].isnull()]
         ids = df[id_col]
-        categories = df[label_col].unique().tolist()
-        labels = df[label_col].map(lambda v: categories.index(v))
+        labels = df[label_col].map(lambda v: 1 if v == positive_class else 0)
         labels = zip(ids, labels)
         X = df[data_col].tolist()
 
