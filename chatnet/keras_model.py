@@ -1,3 +1,6 @@
+from chatnet.pipes import Pipeline
+from chatnet import rnn_prep
+
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
 from keras.layers.embeddings import Embedding
@@ -25,7 +28,6 @@ def get_conv_rnn(embedding_weights, **options):
         nb_filter (default 32)
         pool_length (default 3)
         gru_output_size (default 100)
-        gru_dropout_w 
     """
 
     # Embedding
@@ -56,12 +58,12 @@ def get_conv_rnn(embedding_weights, **options):
     else:
         model.add(Embedding(max_features, embedding_size, input_length=maxlen))
     model.add(Dropout(embedding_dropout))
-    # model.add(Convolution1D(nb_filter=nb_filter,
-    #                       filter_length=filter_length,
-    #                       border_mode='valid',
-    #                       activation='relu',
-    #                       subsample_length=1))
-    # model.add(MaxPooling1D(pool_length=pool_length))
+    model.add(Convolution1D(nb_filter=nb_filter,
+                          filter_length=filter_length,
+                          border_mode='valid',
+                          activation='relu',
+                          subsample_length=1))
+    model.add(MaxPooling1D(pool_length=pool_length))
     model.add(GRU(gru_output_size, dropout_W=gru_dropout, dropout_U=gru_dropout,
                   W_regularizer=l2(gru_l2_coef_w), U_regularizer=l2(gru_l2_coef_u)))
     model.add(Dropout(0.5))
@@ -90,3 +92,36 @@ def train(model, X_train, y_train, X_test, y_test, **options):
     score, acc = model.evaluate(X_test, y_test, batch_size=batch_size)
     print('Test score:', score)
     print('Test accuracy:', acc)
+
+
+
+class KerasPipeline(Pipeline):
+    """Pipeline adapted for convolutional RNN use"""
+    captured_kwargs = {'keras_model_options', 'embedding_size', 'df'}
+    def __init__(self, *args, **kwargs):
+
+        super_kwargs = {k: v for k, v in kwargs.iteritems() if k not in self.captured_kwargs}
+        super(KerasPipeline, self).__init__(*args, **super_kwargs)
+        self.keras_model_options = kwargs.get('keras_model_options', {})
+        self.embedding_size = kwargs.get('embedding_size')
+
+        if 'df' in kwargs:
+            self.setup(kwargs['df'])
+
+
+    def _set_vocabulary(self):
+        nonembeddable = rnn_prep.get_nonembeddable_set(self.word_counts)
+
+        embedding_weights, n_symbols = rnn_prep.get_embedding_weights(
+            self.word_index, embedding_size=self.embedding_size
+        )
+
+        self.word_index = rnn_prep.get_word_index(
+            self.word_counts, embedding_size=self.embedding_size, nonembeddable=nonembeddable
+        )
+
+        self.model = get_conv_rnn(embedding_weights, max_features=n_symbols, **self.keras_model_options)
+
+    def run(self, **training_options):
+        (X_train, y_train, train_ids), (X_test, y_test, test_ids) = self.learning_data
+        train(self.model, X_train, y_train, X_test, y_test, **training_options)
