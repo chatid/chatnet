@@ -1,34 +1,10 @@
 import numpy as np
-# import pandas as pd
+from . import logger
 import re, string
 from collections import Counter
-import logging
-
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 numeric_pat = re.compile('.*[\d].*')
 caps_pat = re.compile('.*[A-Z].*')
-
-GLOVE_VEC_FILENAME = '/Users/bhtucker/rc/chatnet/glove.twitter.27B/glove.twitter.27B.200d.txt'
-
-# vocab = set([x[0] for x in word_counts.most_common(10050)[50:]])
-# word_list = list(vocab)
-# word_index = {v: ix for ix, v in enumerate(word_list)}
-
-def get_word_index(word_counts, nb_words=15000, skip_top=None, nonembeddable=None):
-    skip_top = skip_top or 10
-
-    vocab = []
-    for (ix, (w, _)) in enumerate(word_counts.most_common(nb_words + skip_top)):
-        if w.startswith('$'):
-            if ix < skip_top:
-                skip_top += 1
-            vocab.append(w)
-        elif (not nonembeddable or not w in nonembeddable) and ix > skip_top:
-            vocab.append(w)
-
-    return {v: ix for ix, v in enumerate(vocab)}
 
 
 class TextPrepper(object):
@@ -46,10 +22,10 @@ class TextPrepper(object):
             return '$price'
         if '800' in word:
             return '$phone'
-        if '-' in word or caps_pat.match(word):
-            return '$model'
         if 'www' in  word or 'http' in word:
             return '$web'
+        if '-' in word or caps_pat.match(word):
+            return '$model'
         else:
             return '$digit'
     
@@ -114,23 +90,9 @@ class TextPrepper(object):
                 else:
                     chunk_X.append(padded)
                     chunk_labels.append(('_'.join([label[0], str(chunk_idx)]), label[1]))
-        print skipped
+                # break
+        logger.info("Skipped %s for excess dummies" % skipped)
         return chunk_X, chunk_labels
-
-def get_embedding_weights(word_index, index_from=3, vocab_dim=200, extra_dims=0):
-    n_symbols = len(word_index) + index_from
-    embedding_weights = np.zeros((n_symbols, vocab_dim + extra_dims))
-
-    def update_weights(line):
-        if line[:line.find(' ')] in word_index:
-            tokens = line.split()
-            embedding_weights[word_index[tokens[0]] + index_from] = \
-                np.array(map(np.float, tokens[1:] + [0] * extra_dims))
-
-    with open(GLOVE_VEC_FILENAME, 'r') as f:
-        map(update_weights, f)
-
-    return embedding_weights, n_symbols
 
 
 def get_word_counts(data, tp):
@@ -143,54 +105,18 @@ def get_word_counts(data, tp):
 
     return word_counts
 
-def get_nonembeddable_set(word_counts, rank_cutoff=50000):
-    word_index = get_word_index(word_counts, nb_words=rank_cutoff)
-    seen = set()
-    with open(GLOVE_VEC_FILENAME, 'r') as f:
-        for line in f:
-            if line[:line.find(' ')] in word_index:
-                seen.add(line[:line.find(' ')])
-    return set(word_index) - seen
 
+def get_word_index(word_counts, nb_words=15000, skip_top=None, nonembeddable=None):
+    skip_top = skip_top or 10
 
+    vocab = []
+    for (ix, (w, _)) in enumerate(word_counts.most_common(nb_words + skip_top)):
+        if w.startswith('$'):
+            if ix < skip_top:
+                skip_top += 1
+            vocab.append(w)
+        elif (not nonembeddable or not w in nonembeddable) and ix > skip_top:
+            vocab.append(w)
 
-
-# invalid_glove_indices = [ix for ix, v in enumerate(embedding_weights) if np.allclose(v, 0)]
-
-# (X_train, y_train, train_ids), (X_test, y_test, test_ids) = \
-#     tp.to_matrices(s_data, s_word_index, seed=212, test_split=.08, chunk_size=100, max_dummy_ratio=1.2)
-
-
-
-# ?????
-# whitespace?
-
-
-
-
-# index_dict = {
-#  'yellow': 1,
-#  'four': 2}
-
-# word_vectors = {
-#  'yellow': array([0.1,0.5,...,0.7]),
-#  'four': array([0.2,1.2,...,0.9]),
-# ...
-# }
-
-
-# vocab_dim = 200 # dimensionality of your word vectors
-# n_symbols = len(index_dict) + 1 # adding 1 to account for 0th index (for masking)
-# embedding_weights = np.zeros((n_symbols+1,vocab_dim))
-# for word, index in index_dict.iteritems():
-#     embedding_weights[index, :] = word_vectors[word]
-
-# # assemble the model
-# model = Sequential() # or Graph or whatever
-# takes in: [3, 5, 6] seq -> [[256-vec], [256-vec], [256-vec]]
-# model.add(Embedding(output_dim=rnn_dim, input_dim=n_symbols + 1, mask_zero=True, weights=[embedding_weights])) # note you have to put embedding weights in a list by convention
-# model.add(LSTM(dense_dim, return_sequences=False))  
-# model.add(Dropout(0.5))
-# model.add(Dense(n_symbols, activation='softmax')) # for this is the architecture for predicting the next word, but insert your own here
-
+    return {v: ix for ix, v in enumerate(vocab)}
 
