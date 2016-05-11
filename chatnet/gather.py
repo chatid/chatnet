@@ -28,15 +28,39 @@ def get_message_cols(df):
     return cols
 
 
-def assemble_messages(row, message_cols, value_filter=lambda v: True, prepend_sender=False):
+def assemble_messages(row, message_iterator, value_filter=lambda v: True, prepend_sender=False, valid_bodies=True):
     sequence = []
-    for key in message_cols:
-        cell = row[key]
-        if isinstance(cell, unicode) and ':' in cell:
+    for cell in message_iterator(row):
+        if isinstance(cell, (unicode, str)) and ':' in cell:
             if value_filter(cell):
                 message = cell[cell.find(':') + 1:]
+
+                # optional message filters
+                if valid_bodies:
+                    if not message.strip():
+                        continue
                 if prepend_sender:
                     sequence += ['$visitor' if cell.startswith('Visitor') else '$agent']
                 sequence += message.split()
         else:
             return sequence
+    return sequence
+
+
+def get_wide_columns_message_iterator(message_cols):
+    # Returns a function that gets a message iterator from a row
+    # given a list of column names where messages can be found
+    def message_iterator(row):
+        for key in message_cols:
+            yield row[key]
+    return message_iterator
+
+def get_dense_column_message_iterator(column):
+    # Returns a function that gets a message iterator from a row
+    # given a column name which points to an array of messages
+
+    def message_iterator(row):
+        for cell in row[column]:
+            yield cell
+    return message_iterator
+
