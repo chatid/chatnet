@@ -56,14 +56,16 @@ def create_vsm_matrix(x_train, embeddings):
 def train_pca_svm(learning_data, pca_dims, probability=True, cache_size=3000, **svm_kwargs):
     (X_train, y_train, train_ids), (X_test, y_test, test_ids) = learning_data
 
-    rpca = TruncatedSVD(n_components=pca_dims) #, whiten=True)
+    rpca = TruncatedSVD(n_components=pca_dims)
     n_symbols = max(
         np.max(X_train) + 1, np.max(X_test) + 1
     )
     logger.info("Forming CSR Matrices")
     x_train, x_test = create_csr_matrix(X_train, n_symbols), create_csr_matrix(X_test, n_symbols)
     logger.info("Starting PCA")
-    x_train_pca = rpca.fit_transform(x_train)
+    # pseudo-supervised PCA: fit on positive class only
+    rpca = rpca.fit(x_train[y_train > 0])
+    x_train_pca = rpca.transform(x_train)
     x_test_pca = rpca.transform(x_test)
 
     logger.info("Starting SVM")
