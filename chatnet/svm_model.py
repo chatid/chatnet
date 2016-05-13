@@ -22,7 +22,7 @@ def sequence_to_csr(row):
         yield (word_ix, ct)
 
 
-def create_csr_matrix(x_train, n_symbols):
+def create_csr_matrix(x_train, n_symbols, skip_top=3):
     """
     Given training data in form of sequences of word indices
     create sparse matrix of vocab-wide count vectors
@@ -32,6 +32,8 @@ def create_csr_matrix(x_train, n_symbols):
     vals = []
     for data_ix, row in enumerate(x_train):
         for word_ix, ct in sequence_to_csr(row):
+            if word_ix < skip_top:
+                continue
             rows.append(data_ix)
             cols.append(word_ix)
             vals.append(ct)
@@ -56,7 +58,7 @@ def create_vsm_matrix(x_train, embeddings):
 def train_pca_svm(learning_data, pca_dims, probability=True, cache_size=3000, **svm_kwargs):
     (X_train, y_train, train_ids), (X_test, y_test, test_ids) = learning_data
 
-    rpca = TruncatedSVD(n_components=pca_dims)
+    pca = TruncatedSVD(n_components=pca_dims)
     n_symbols = max(
         np.max(X_train) + 1, np.max(X_test) + 1
     )
@@ -64,34 +66,37 @@ def train_pca_svm(learning_data, pca_dims, probability=True, cache_size=3000, **
     x_train, x_test = create_csr_matrix(X_train, n_symbols), create_csr_matrix(X_test, n_symbols)
     logger.info("Starting PCA")
     # pseudo-supervised PCA: fit on positive class only
-    rpca = rpca.fit(x_train[y_train > 0])
-    x_train_pca = rpca.transform(x_train)
-    x_test_pca = rpca.transform(x_test)
+    pca = pca.fit(x_train[y_train > 0])
+    x_train_pca = pca.transform(x_train)
+    x_test_pca = pca.transform(x_test)
 
     logger.info("Starting SVM")
     svc = SVC(probability=probability, cache_size=cache_size, **svm_kwargs)
     svc.fit(x_train_pca, y_train)
     logger.info("Scoring SVM")
     logger.info(svc.score(x_test_pca, y_test))
-    return svc, rpca, x_train_pca, x_test_pca
+    pca.n_symbols = n_symbols
+    return svc, pca, x_train_pca, x_test_pca
 
 
-def score_svm(learning_data, svc, pca):
-    (X_train, y_train, train_ids), (X_test, y_test, test_ids) = learning_data
-    n_symbols = max(
-        np.max(X_train) + 1, np.max(X_test) + 1
-    )
-    x_test = create_csr_matrix(X_test, n_symbols)
-    x_test_pca = pca.transform(x_test)
-    logger.info("Scoring SVM")
-    logger.info(svc.score(x_test_pca, y_test))
+# def score_svm(learning_data, svc, pca, n_symbols=None):
+#     (X_train, y_train, train_ids), (X_test, y_test, test_ids) = learning_data
+#     n_symbols = n_symbols or max(
+#         np.max(X_train) + 1, np.max(X_test) + 1
+#     )
+#     x_test = create_csr_matrix(X_test, n_symbols)
+#     x_test_pca = pca.transform(x_test)
+#     logger.info("Scoring SVM")
+#     score = svc.score(x_test_pca, y_test)
+#     logger.info(svc.score(x_test_pca, y_test))
 
 
 def get_pca_mats(learning_data, pca):
     (X_train, y_train, train_ids), (X_test, y_test, test_ids) = learning_data
     n_symbols = np.max(X_train) + 1
     x_train, x_test = create_csr_matrix(X_train, n_symbols), create_csr_matrix(X_test, n_symbols)
-    x_test = create_csr_matrix(X_test, n_symbols)
+    if not pca:
+        return x_train, x_test
     return pca.transform(x_train), pca.transform(x_test)
 
 
@@ -102,6 +107,7 @@ def split_learning_data(x_data, y_data, ids, split_ratio=.2):
 
 class SVMPipeline(Pipeline):
     captured_kwargs = {'pca_dims', 'probability', 'cache_size', 'df'}
+    persisted_attrs = {'svc', 'pca', 'word_index'}
     def __init__(self, *args, **kwargs):
         super_kwargs = {k: v for k, v in kwargs.iteritems() if k not in self.captured_kwargs}
         super(SVMPipeline, self).__init__(**super_kwargs)
@@ -115,4 +121,14 @@ class SVMPipeline(Pipeline):
         training_options.setdefault('pca_dims', self.pca_dims)
         training_options.setdefault('probability', self.probability)
         training_options.setdefault('cache_size', self.cache_size)
-        self.svc, self.rpca, self.x_train_pca, self.x_test_pca = train_pca_svm(self.learning_data, **training_options)
+        self.svc, self.pca, self.x_train_pca, self.x_test_pca = train_pca_svm(self.learning_data, **training_options)
+
+    def predict(self, new_df):
+        self._set_token_data(new_df)
+        self._set_learning_data(test_split=0.)
+        (X, y, ids), _ = self.learning_data
+        x_pca = self.pca.transform(create_csr_matrix(X, self.pca.n_symbols))
+        return (self.svc.predict_proba(x_pca), ids)
+
+
+

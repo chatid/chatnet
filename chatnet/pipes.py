@@ -2,6 +2,9 @@ from . import logger
 from chatnet import gather, prep
 import pandas as pd
 from functools import partial
+from sklearn.externals import joblib
+import os
+
 
 class Pipeline(object):
     """
@@ -30,7 +33,7 @@ class Pipeline(object):
         self.vocab_size=vocab_size        
         self.word_index_kwargs = dict(nb_words=vocab_size)
 
-        if df:
+        if df is not None:
             self.setup(df)
  
     def _tokenize(self, df, message_key=''):
@@ -84,3 +87,15 @@ class Pipeline(object):
         self._set_token_data(df)
         self._set_vocabulary()
         self._set_learning_data()
+
+
+    def persist(self, name, path):
+        for attr in self.persisted_attrs:
+            joblib.dump(getattr(self, attr), os.path.join(path, '_'.join([attr, name])))
+
+    @classmethod
+    def restore(cls, name, path):
+        pipe = cls()
+        for attr in cls.persisted_attrs:
+            setattr(pipe, attr, joblib.load(os.path.join(path, '_'.join([attr, name]))))
+        return pipe
