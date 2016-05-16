@@ -9,7 +9,7 @@ import numpy as np
 from prep import get_word_index
 import os
 
-GLOVE_VEC_FILENAME = os.environ.get('GLOVE_VEC_FILENAME')
+GLOVE_VEC_TEMPLATE = os.environ.get('GLOVE_VEC_TEMPLATE')
 
 GLOVE_DIMS = {25, 50, 200}
 
