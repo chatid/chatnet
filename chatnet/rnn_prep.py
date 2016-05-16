@@ -7,9 +7,9 @@
 """
 import numpy as np
 from prep import get_word_index
+import os
 
-GLOVE_VEC_TEMPLATE = '/Users/bhtucker/rc/chatnet/glove.twitter.27B/glove.twitter.27B.{dimensions}d.txt'
-# GLOVE_VEC_FILENAME = os.environ.get('GLOVE_VEC_FILENAME')
+GLOVE_VEC_FILENAME = os.environ.get('GLOVE_VEC_FILENAME')
 
 GLOVE_DIMS = {25, 50, 200}
 

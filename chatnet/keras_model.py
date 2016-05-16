@@ -112,12 +112,10 @@ class KerasPipeline(Pipeline):
     def _set_vocabulary(self):
         nonembeddable = rnn_prep.get_nonembeddable_set(self.word_counts)
 
+        self.word_index = rnn_prep.get_word_index(self.word_counts, nonembeddable=nonembeddable)
+
         embedding_weights, n_symbols = rnn_prep.get_embedding_weights(
             self.word_index, embedding_size=self.embedding_size
-        )
-
-        self.word_index = rnn_prep.get_word_index(
-            self.word_counts, embedding_size=self.embedding_size, nonembeddable=nonembeddable
         )
 
         self.model = get_conv_rnn(embedding_weights, max_features=n_symbols, **self.keras_model_options)

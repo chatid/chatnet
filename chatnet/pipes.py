@@ -12,8 +12,8 @@ class Pipeline(object):
     to go from text data/labels to model-ready numeric data
     """
     def __init__(self, vocab_size=15000, value_filter=None,
-                 data_col=None, id_col=None, label_col=None, features=[],
-                 binary=True, prepend_sender=True, binary_options={u'product', u'service'},
+                 data_col=None, id_col=None, label_col=None,
+                 strict_binary=False, prepend_sender=True, binary_options={u'product', u'service'},
                  positive_class='product', df=None, message_key=None):
 
         # message processing
@@ -21,12 +21,11 @@ class Pipeline(object):
         self.data_col = data_col or 'tokens'
         self.id_col = id_col or 'id'
         self.label_col = label_col or 'labels'
-        self.features = features
         self.prepend_sender = prepend_sender
-        self.message_key = message_key
+        self.message_key = message_key or 'msgs'
 
         # label processing
-        self.label_filter = lambda v: True if not binary else v in binary_options
+        self.label_filter = lambda v: True if not strict_binary else v in binary_options
         self.positive_class = positive_class
 
         # vocab processing
@@ -51,7 +50,8 @@ class Pipeline(object):
         df[self.data_col] = df.apply(mapper, axis=1)
 
 
-    def _set_token_data(self, df):
+    def _set_token_data(self, input_df):
+        df = input_df.copy()
         if self.data_col not in df.columns:
             self._tokenize(df, message_key=self.message_key)
 
@@ -60,7 +60,7 @@ class Pipeline(object):
         self.tp = prep.TextPrepper()
 
         self.data = data = pd.DataFrame(label_filtered_df[
-            [self.data_col, self.id_col, self.label_col] + self.features
+            [self.data_col, self.id_col, self.label_col]
             ])
         
         logger.info("Counting words...")
