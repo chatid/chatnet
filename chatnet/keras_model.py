@@ -1,7 +1,7 @@
 from chatnet.pipes import Pipeline
 from chatnet import rnn_prep
 
-from keras.models import Sequential
+from keras.models import Sequential, model_from_json
 from keras.layers.core import Dense, Dropout, Activation
 from keras.layers.embeddings import Embedding
 from keras.layers.recurrent import GRU
@@ -9,6 +9,8 @@ from keras.layers.convolutional import Convolution1D, MaxPooling1D
 from keras.optimizers import Adam
 from keras.regularizers import l2
 from keras.callbacks import LearningRateScheduler
+
+import os
 
 def get_rate(epoch):
     if epoch < 3:
@@ -94,10 +96,10 @@ def train(model, X_train, y_train, X_test, y_test, **options):
     print('Test accuracy:', acc)
 
 
-
 class KerasPipeline(Pipeline):
     """Pipeline adapted for convolutional RNN use"""
     captured_kwargs = {'keras_model_options', 'embedding_size', 'df'}
+    persisted_attrs = {'word_index'}
     def __init__(self, *args, **kwargs):
 
         super_kwargs = {k: v for k, v in kwargs.iteritems() if k not in self.captured_kwargs}
@@ -123,3 +125,19 @@ class KerasPipeline(Pipeline):
     def run(self, **training_options):
         (X_train, y_train, train_ids), (X_test, y_test, test_ids) = self.learning_data
         train(self.model, X_train, y_train, X_test, y_test, **training_options)
+
+
+    def persist(self, name, path):
+        path_for = lambda attr: os.path.join(path, '_'.join([attr, name]))
+        super(KerasPipeline, self).persist(name, path)
+        model_json = self.model.to_json()
+        open(path_for('model_json'), 'w').write(model_json)
+        self.model.save_weights(path_for('model_weights'))
+
+    @classmethod
+    def restore(cls, name, path):
+        path_for = lambda attr: os.path.join(path, '_'.join([attr, name]))
+        pipe = super(KerasPipeline, cls).restore(cls, name, path)
+        model = model_from_json(open(path_for('model_json'), 'r').read())
+        model.load_weights(path_for('model_weights'))
+        return pipe

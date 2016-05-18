@@ -125,7 +125,7 @@ class SVMPipeline(Pipeline):
 
     def predict(self, new_df):
         self._set_token_data(new_df)
-        self._set_learning_data(test_split=0.)
+        self._set_learning_data(test_split=0., max_dummy_ratio=1)
         (X, y, ids), _ = self.learning_data
         x_pca = self.pca.transform(create_csr_matrix(X, self.pca.n_symbols))
         return (self.svc.predict_proba(x_pca), ids)
