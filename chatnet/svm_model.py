@@ -83,18 +83,6 @@ def train_pca_svm(learning_data, pca_dims, probability=True, cache_size=3000, **
     return svc, pca, x_train_pca, x_test_pca
 
 
-# def score_svm(learning_data, svc, pca, n_symbols=None):
-#     (X_train, y_train, train_ids), (X_test, y_test, test_ids) = learning_data
-#     n_symbols = n_symbols or max(
-#         np.max(X_train) + 1, np.max(X_test) + 1
-#     )
-#     x_test = create_csr_matrix(X_test, n_symbols)
-#     x_test_pca = pca.transform(x_test)
-#     logger.info("Scoring SVM")
-#     score = svc.score(x_test_pca, y_test)
-#     logger.info(svc.score(x_test_pca, y_test))
-
-
 def get_pca_mats(learning_data, pca):
     (X_train, y_train, train_ids), (X_test, y_test, test_ids) = learning_data
     n_symbols = np.max(X_train) + 1
@@ -132,6 +120,8 @@ class SVMPipeline(Pipeline):
         self._set_token_data(new_df)
         self._set_learning_data(test_split=0., max_dummy_ratio=1)
         (X, y, ids), _ = self.learning_data
+        if len(X) == 0:
+            return None
         x_pca = self.pca.transform(create_csr_matrix(X, self.pca.n_symbols))
         return (self.svc.predict_proba(x_pca), ids)
 
