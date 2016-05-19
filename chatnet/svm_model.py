@@ -30,6 +30,7 @@ def create_csr_matrix(x_train, n_symbols, skip_top=3):
     rows = []
     cols = []
     vals = []
+
     for data_ix, row in enumerate(x_train):
         for word_ix, ct in sequence_to_csr(row):
             if word_ix < skip_top:
@@ -67,6 +68,7 @@ def train_pca_svm(learning_data, pca_dims, probability=True, cache_size=3000, **
     logger.info("Starting PCA")
     # pseudo-supervised PCA: fit on positive class only
     pca = pca.fit(x_train[y_train > 0])
+
     x_train_pca = pca.transform(x_train)
     x_test_pca = pca.transform(x_test)
 
@@ -74,7 +76,9 @@ def train_pca_svm(learning_data, pca_dims, probability=True, cache_size=3000, **
     svc = SVC(probability=probability, cache_size=cache_size, **svm_kwargs)
     svc.fit(x_train_pca, y_train)
     logger.info("Scoring SVM")
-    logger.info(svc.score(x_test_pca, y_test))
+    score = svc.score(x_test_pca, y_test)
+    logger.info(score)
+    svc.test_score = score
     pca.n_symbols = n_symbols
     return svc, pca, x_train_pca, x_test_pca
 
@@ -122,6 +126,7 @@ class SVMPipeline(Pipeline):
         training_options.setdefault('probability', self.probability)
         training_options.setdefault('cache_size', self.cache_size)
         self.svc, self.pca, self.x_train_pca, self.x_test_pca = train_pca_svm(self.learning_data, **training_options)
+        return self.svc.test_score
 
     def predict(self, new_df):
         self._set_token_data(new_df)

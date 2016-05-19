@@ -14,7 +14,7 @@ class Pipeline(object):
     def __init__(self, vocab_size=15000, value_filter=None,
                  data_col=None, id_col=None, label_col=None,
                  strict_binary=False, prepend_sender=True, binary_options={u'product', u'service'},
-                 positive_class='product', df=None, message_key=None):
+                 positive_class='product', df=None, message_key=None, **kwargs):
 
         # message processing
         self.value_filter = value_filter or (lambda v: True)
@@ -31,6 +31,7 @@ class Pipeline(object):
         # vocab processing
         self.vocab_size=vocab_size        
         self.word_index_kwargs = dict(nb_words=vocab_size)
+        self.to_matrices_kwargs = kwargs
 
         if df is not None:
             self.setup(df)
@@ -86,7 +87,7 @@ class Pipeline(object):
     def setup(self, df):
         self._set_token_data(df)
         self._set_vocabulary()
-        self._set_learning_data()
+        self._set_learning_data(**self.to_matrices_kwargs)
 
 
     def persist(self, name, path):

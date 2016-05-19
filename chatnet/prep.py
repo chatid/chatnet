@@ -12,7 +12,8 @@ class TextPrepper(object):
         self.pad_char = pad_char
         self.oov_char = oov_char
         self.start_char = start_char
-        self.index_from = index_from
+        self.special_chars = {self.oov_char, self.pad_char, self.start_char}
+        self.index_from = len(self.special_chars)
         self.exclude = exclude
 
     def cleaner(self, word):
@@ -83,7 +84,11 @@ class TextPrepper(object):
                     continue
                 pad_size = (chunk_size - len(chunk) + 1) #  add a one due to start_char
                 padded = [self.pad_char] * pad_size + chunk
-                if sum(c == self.oov_char for c in padded) > ((chunk_size - pad_size) / max_dummy_ratio):
+                if (
+                    sum(c == self.oov_char for c in padded) > ((chunk_size - pad_size) / max_dummy_ratio)
+                    or
+                    all([c in self.special_chars for c in chunk])
+                    ):                    
                     skipped += 1
                     continue
                 else:
