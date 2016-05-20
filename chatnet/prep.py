@@ -35,7 +35,10 @@ class TextPrepper(object):
 
         df = df[~df[id_col].isnull()]
         ids = df[id_col]
-        labels = df[label_col].map(lambda v: 1 if v == positive_class else 0)
+        if positive_class is None: # regression problems have no sense of 'positive class'
+            labels = df[label_col]
+        else:
+            labels = df[label_col].map(lambda v: 1 if v == positive_class else 0)
         labels = zip(ids, labels)
         X = df[data_col].tolist()
 

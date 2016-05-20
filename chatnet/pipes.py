@@ -14,7 +14,7 @@ class Pipeline(object):
     def __init__(self, vocab_size=15000, value_filter=None,
                  data_col=None, id_col=None, label_col=None,
                  strict_binary=False, prepend_sender=True, binary_options={u'product', u'service'},
-                 positive_class='product', df=None, message_key=None, **kwargs):
+                 positive_class='product', df=None, message_key=None, features=[], **kwargs):
 
         # message processing
         self.value_filter = value_filter or (lambda v: True)
@@ -23,6 +23,8 @@ class Pipeline(object):
         self.label_col = label_col or 'labels'
         self.prepend_sender = prepend_sender
         self.message_key = message_key or 'msgs'
+
+        self.features = features # column list of numeric features for training
 
         # label processing
         self.label_filter = lambda v: True if not strict_binary else v in binary_options
@@ -61,9 +63,9 @@ class Pipeline(object):
         self.tp = prep.TextPrepper()
 
         self.data = data = pd.DataFrame(label_filtered_df[
-            [self.data_col, self.id_col, self.label_col]
+            [self.data_col, self.id_col, self.label_col] + self.features
             ])
-        
+
         logger.info("Counting words...")
 
         self.word_counts = prep.get_word_counts(data[self.data_col], self.tp)
@@ -83,6 +85,9 @@ class Pipeline(object):
 
         self.learning_data = (X_train, y_train, train_ids), (X_test, y_test, test_ids) = \
             self.tp.to_matrices(self.data, self.word_index, **to_matrices_kwargs)
+        if self.features: 
+            # attach numeric features to examples:
+            pass
 
     def setup(self, df):
         self._set_token_data(df)
