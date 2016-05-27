@@ -29,15 +29,17 @@ class TextPrepper(object):
             return '$model'
         else:
             return '$digit'
-    
+
     def to_matrices(self, df, word_index, id_col='Chat Session ID', label_col='Chat Type',
                      data_col='msgs', positive_class='product', seed=133, test_split=.2, **kwargs):
 
         df = df[~df[id_col].isnull()]
         ids = df[id_col]
-        if positive_class is None: # regression problems have no sense of 'positive class'
+        if positive_class is "scores": # regression
             labels = df[label_col]
-        else:
+        elif positive_class is "satisfaction": # binary scores (satisfied/unsatisfied) | current cutoff is [3-5] = satisfied
+            labels = df[label_col].map(lambda s: 1 if s >= 3 else 0)
+        else: # positive_class for binary moderator labels
             labels = df[label_col].map(lambda v: 1 if v == positive_class else 0)
         labels = zip(ids, labels)
         X = df[data_col].tolist()
@@ -91,7 +93,7 @@ class TextPrepper(object):
                     sum(c == self.oov_char for c in padded) > ((chunk_size - pad_size) / max_dummy_ratio)
                     or
                     all([c in self.special_chars for c in chunk])
-                    ):                    
+                    ):
                     skipped += 1
                     continue
                 else:
@@ -126,4 +128,3 @@ def get_word_index(word_counts, nb_words=15000, skip_top=None, nonembeddable=Non
             vocab.append(w)
 
     return {v: ix for ix, v in enumerate(vocab)}
-
