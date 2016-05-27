@@ -143,11 +143,11 @@ class ClassifierPipeline(Pipeline):
         x_pca = self.pca.transform(create_csr_matrix(X, self.pca.n_symbols))
         return (self.cl.predict_proba(x_pca), ids)
 
-    def predict_and_score(self, new_df):
+    def test_and_score(self, new_df):
         self._set_token_data(new_df)
         self._set_learning_data(test_split=0., max_dummy_ratio=1)
         (X, y, ids), _ = self.learning_data
         if len(X) == 0:
             return None
         x_pca = self.pca.transform(create_csr_matrix(X, self.pca.n_symbols))
-        return (self.cl.predict_proba(x_pca), ids, self.ca.score(x_pca, y))
+        return self.cl.score(x_pca, y)
