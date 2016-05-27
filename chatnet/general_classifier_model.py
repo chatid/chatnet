@@ -150,4 +150,4 @@ class ClassifierPipeline(Pipeline):
         if len(X) == 0:
             return None
         x_pca = self.pca.transform(create_csr_matrix(X, self.pca.n_symbols))
-        return self.cl.score(x_pca, y)
+        return (self.cl.predict_proba(x_pca), ids, self.ca.score(x_pca, y))
