@@ -130,7 +130,7 @@ class ClassifierPipeline(Pipeline):
         if 'df' in kwargs:
             self.setup(kwargs['df'])
 
-    def run(self, classifier, **cl_kwargs):
+    def run(self, classifier=SVC, **cl_kwargs):
         self.cl, self.pca, self.x_train_pca, self.x_test_pca = train_pca_classifier(self.learning_data, self.pca_dims, classifier, **cl_kwargs)
         return self.cl.test_score
 
