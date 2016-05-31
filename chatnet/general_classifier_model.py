@@ -18,10 +18,17 @@
         pipe.setup(df)
         pipe.run(regressor, regressor_arguments)
 
-    Multiple Classifiers w/ Voting:
+    Multiple Classifiers w/ Voting (or one classifier with args):
         pipe = ClassifierPipeline(**super_kwargs)
         pipe.setup(df)
         pipe.run([(cl_0, {cl_0_args}), (cl_1, ), ...], VotingClassifier_args)
+
+    Feature Data:
+        Usage:
+            In the data frame, have another column with consisting of lists or
+            columns of feature data
+
+            If no feature data is desired, have the column be full of empty arrays
 
 """
 from chatnet.pipes import Pipeline
@@ -77,7 +84,7 @@ def create_vsm_matrix(x_train, embeddings):
 
 
 def train_pca_classifier(learning_data, pca_dims, classifier=SVC, **cl_kwargs):
-    (X_train, y_train, train_ids), (X_test, y_test, test_ids) = learning_data
+    (X_train, features_train, y_train, train_ids), (X_test, features_test, y_test, test_ids) = learning_data
 
     pca = TruncatedSVD(n_components=pca_dims)
     n_symbols = max(
@@ -85,6 +92,10 @@ def train_pca_classifier(learning_data, pca_dims, classifier=SVC, **cl_kwargs):
     )
     logger.info("Forming CSR Matrices")
     x_train, x_test = create_csr_matrix(X_train, n_symbols), create_csr_matrix(X_test, n_symbols)
+    features_train = np.array(features_train, ndmin=2)
+    features_test = np.array(features_test, ndmin=2)
+    x_train = np.concatenate((x_train.toarray(), features_train), axis=1)
+    x_test = np.concatenate((x_test.toarray(), features_test), axis=1)
     logger.info("Starting PCA")
     # pseudo-supervised PCA: fit on positive class only
     pca = pca.fit(x_train[y_train > 0])

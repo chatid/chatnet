@@ -18,13 +18,14 @@ class Pipeline(object):
 
     """
     def __init__(self, vocab_size=15000, value_filter=None,
-                 data_col=None, id_col=None, label_col=None,
+                 data_col=None, feature_key=None, id_col=None, label_col=None,
                  strict_binary=False, prepend_sender=True, binary_options={u'product', u'service'},
                  positive_class='product', df=None, message_key=None, **kwargs):
 
         # message processing
         self.value_filter = value_filter or (lambda v: True)
         self.data_col = data_col or 'tokens'
+        self.feature_col = feature_key or 'features'
         self.id_col = id_col or 'id'
         self.label_col = label_col or 'labels'
         self.prepend_sender = prepend_sender
@@ -68,7 +69,7 @@ class Pipeline(object):
         self.tp = prep.TextPrepper()
 
         self.data = data = pd.DataFrame(label_filtered_df[
-            [self.data_col, self.id_col, self.label_col]])
+            [self.data_col, self.feature_col, self.id_col, self.label_col]])
 
 
         logger.info("Counting words...")
@@ -83,14 +84,15 @@ class Pipeline(object):
         to_matrices_kwargs.setdefault('test_split', .18)
         to_matrices_kwargs.setdefault('chunk_size', 100)
         to_matrices_kwargs.setdefault('data_col', self.data_col)
+        to_matrices_kwargs.setdefault('feature_col', self.feature_col)
         to_matrices_kwargs.setdefault('id_col', self.id_col)
         to_matrices_kwargs.setdefault('label_col', self.label_col)
         to_matrices_kwargs.setdefault('positive_class', self.positive_class)
         logger.info("Making numeric sequences...")
 
-        self.learning_data = (X_train, y_train, train_ids), (X_test, y_test, test_ids) = \
+        self.learning_data = (X_train, features_train, y_train, train_ids), (X_test, features_test, y_test, test_ids) = \
             self.tp.to_matrices(self.data, self.word_index, **to_matrices_kwargs)
-        
+
     def setup(self, df):
         self._set_token_data(df)
         self._set_vocabulary()

@@ -31,17 +31,18 @@ class TextPrepper(object):
             return '$digit'
 
     def to_matrices(self, df, word_index, id_col='Chat Session ID', label_col='Chat Type',
-                     data_col='msgs', positive_class='product', seed=133, test_split=.2, **kwargs):
+                     data_col='msgs', feature_col='features', positive_class='product', seed=133, test_split=.2, **kwargs):
 
         df = df[~df[id_col].isnull()]
         ids = df[id_col]
+        features = df[feature_col]
         if positive_class is "scores": # regression
             labels = df[label_col]
         elif positive_class is "satisfaction": # binary scores (satisfied/unsatisfied) | current cutoff is [3-5] = satisfied
             labels = df[label_col].map(lambda s: 1 if s >= 3 else 0)
         else: # positive_class for binary moderator labels
             labels = df[label_col].map(lambda v: 1 if v == positive_class else 0)
-        labels = zip(ids, labels)
+        labels = zip(features, ids, labels)
         X = df[data_col].tolist()
 
         np.random.seed(seed)
@@ -49,6 +50,7 @@ class TextPrepper(object):
         np.random.seed(seed)
         np.random.shuffle(labels)
         test_ix = int(len(X) * (1 - test_split))
+
         X_train = np.array(X[:test_ix])
         labels_train = labels[:test_ix]
 
@@ -58,13 +60,15 @@ class TextPrepper(object):
         X_train, labels_train = self.chunk_convos(X_train, labels_train, word_index, **kwargs)
         X_test, labels_test = self.chunk_convos(X_test, labels_test, word_index, **kwargs)
 
-        y_train = np.array([x[1] for x in labels_train])
-        train_ids = [x[0] for x in labels_train]
+        y_train = np.array([x[2] for x in labels_train])
+        train_ids = [x[1] for x in labels_train]
+        features_train = np.asarray([x[0] for x in labels_train])
 
-        y_test = np.array([x[1] for x in labels_test])
-        test_ids = [x[0] for x in labels_test]
+        y_test = np.array([x[2] for x in labels_test])
+        test_ids = [x[1] for x in labels_test]
+        features_test = np.asarray([x[0] for x in labels_test])
 
-        return (X_train, y_train, train_ids), (X_test, y_test, test_ids)
+        return (X_train, features_train, y_train, train_ids), (X_test, features_test, y_test, test_ids)
 
     def chunk_convos(self, X, labels, word_index, chunk_size=100,
                      max_dummy_ratio=2, chunk_overlap_ratio=2):
@@ -98,7 +102,7 @@ class TextPrepper(object):
                     continue
                 else:
                     chunk_X.append(padded)
-                    chunk_labels.append(('_'.join([label[0], str(chunk_idx)]), label[1]))
+                    chunk_labels.append((label[0], '_'.join([label[1], str(chunk_idx)]), label[2]))
                 # break
         logger.info("Skipped %s for excess dummies" % skipped)
         return chunk_X, chunk_labels
